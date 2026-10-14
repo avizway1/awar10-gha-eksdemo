@@ -88,7 +88,7 @@ function Login() {
                 Built by Aviz Academy
               </Typography>
               <Typography variant="h5" sx={{ opacity: 0.9, mb: 4 }}>
-                Streamline your workflow with our powerful task management system
+                Streamline your workflow with Aviz Academy's powerful task management system
               </Typography>
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap' }}>
                 <Box sx={{ textAlign: 'center' }}>

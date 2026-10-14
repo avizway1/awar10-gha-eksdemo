@@ -1,0 +1,121 @@
+
+
+1. Create an EKS cluster by using EKSCTL or by using Terraform.
+
+2. Create a GitHub repository and make sure you pick the GitHub URL and add that to the IAM role with an immutable URL. 
+
+repo:avizway1@57447641/awar10-gha-eksdemo@1418328273
+
+step 3 : add the below secrets to the repository:
+- AWS account ID
+- AWS role ARN
+- EKS cluster name
+- Sonar token
+
+Step 4 : authenticate to your ECR service. 
+
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 992189742322.dkr.ecr.ap-south-1.amazonaws.com
+
+
+Step 5 : we need to create five repositories for our application. Those are:
+- frontend
+- user-service
+- task-service
+- notification-service
+- analytics-service
+
+
+aws ecr create-repository --repository-name task-management/frontend --region ap-south-1
+aws ecr create-repository --repository-name task-management/user-service --region ap-south-1
+aws ecr create-repository --repository-name task-management/task-service --region ap-south-1
+aws ecr create-repository --repository-name task-management/notification-service --region ap-south-1
+aws ecr create-repository --repository-name task-management/analytics-service --region ap-south-1
+
+
+Step 6 : build and push images to repos
+
+
+export ACCOUNT_ID=992189742322
+export REGION=ap-south-1
+export REGISTRY=$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+
+
+992189742322.dkr.ecr.ap-south-1.amazonaws.com/avizghaecrrepo:latest
+
+
+docker buildx build --platform linux/amd64 --push -t $REGISTRY/task-management/frontend:latest ./frontend
+docker buildx build --platform linux/amd64 --push -t $REGISTRY/task-management/analytics-service:latest ./analytics-service
+docker buildx build --platform linux/amd64 --push -t $REGISTRY/task-management/user-service ./user-service
+docker buildx build --platform linux/amd64 --push -t $REGISTRY/task-management/task-service:latest ./task-service
+docker buildx build --platform linux/amd64 --push -t $REGISTRY/task-management/notification-service:latest ./notification-service
+
+------
+
+Step 7 : deploy an ingress controller to deliver our entire application to the outside world. 
+
+7.1 Use the shared iam_policy.json document and create IAM policy in your aws account. 
+
+aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
+
+policy ARN: arn:aws:iam::992189742322:policy/AWSLoadBalancerControllerIAMPolicy
+
+
+7.2 : Approve OIDC provider and create service account for getting permissions to creating resources in AWS env.
+
+eksctl utils associate-iam-oidc-provider --region ap-south-1 --cluster ekswithavinash --approve
+
+eksctl create iamserviceaccount --cluster ekswithavinash --namespace kube-system --name=aws-load-balancer-controller --attach-policy-arn=arn:aws:iam::992189742322:policy/AWSLoadBalancerControllerIAMPolicy --region ap-south-1 --override-existing-serviceaccounts --approve
+
+verify: 
+kubectl get sa -n kube-system
+kubectl describe sa aws-load-balancer-controller -n kube-system
+
+
+7.3 : Add helm and update
+
+helm repo add eks http://aws.github.io/eks-charts
+helm repo update eks
+
+7.4 : Install the added helm chart
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=ekswithavinash --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
+
+
+-------
+
+7.5 : Create a new service account for our applicaiton. Add DynamoDB permisisons to the sevrice account.
+
+kubectl create ns task-management
+
+eksctl create iamserviceaccount --cluster ekswithavinash --namespace task-management --name=notification-service-sa --attach-policy-arn=arn:aws:iam::aws:policy/AmazonSESFullAccess --region ap-south-1 --override-existing-serviceaccounts --approve
+
+--> grab the Service account name arn: 
+
+By default our account will be in sandbox mode for SES as we are using the free plan so you validate at least two email IDs. We can use those as sender and receiver in our task management application. 
+
+7.6 : update email ID in notification service manifest file. 
+
+-------
+
+
+Step 8 : Pick the github actions OIDC IAM role and add as access entry at EKS cluster.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
